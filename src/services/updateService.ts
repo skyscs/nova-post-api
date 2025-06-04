@@ -202,7 +202,8 @@ export class UpdateService {
 
   async getUpdateHistory(limit: number = 10): Promise<UpdateLog[]> {
     const query = `
-      SELECT * FROM update_logs 
+      SELECT id, status, message, divisions_count, started_at, completed_at, error_details 
+      FROM update_logs 
       ORDER BY started_at DESC 
       LIMIT $1
     `;
@@ -213,7 +214,8 @@ export class UpdateService {
 
   async getLastUpdate(): Promise<UpdateLog | null> {
     const query = `
-      SELECT * FROM update_logs 
+      SELECT id, status, message, divisions_count, started_at, completed_at, error_details 
+      FROM update_logs 
       ORDER BY started_at DESC 
       LIMIT 1
     `;

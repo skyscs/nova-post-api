@@ -6,6 +6,19 @@
 
 **BREAKING CHANGES**: Removed public database update endpoints for security reasons.
 
+### 🧹 API Cleanup
+
+**BREAKING CHANGES**: Removed technical fields from API responses for cleaner output.
+
+#### Removed Fields
+- `created_at` - Internal database timestamp (not relevant for API consumers)
+- `updated_at` - Internal database timestamp (not relevant for API consumers)
+
+#### Retained Fields
+- `nova_created_at` - Original NovaPost creation timestamp (for data synchronization)
+- `nova_updated_at` - Original NovaPost update timestamp (for data synchronization)  
+- `nova_deleted_at` - Original NovaPost deletion timestamp (for data synchronization)
+
 #### Removed Endpoints
 - `POST /api/v1/system/update` - Manual database update trigger
 - `POST /api/v1/system/load-data` - Load data from file  

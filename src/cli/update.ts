@@ -42,14 +42,26 @@ async function main() {
 async function checkUpdates() {
   try {
     console.log('🔍 Checking for updates...');
+    
+    // Get last successful update from history
+    const history = await updateService.getUpdateHistory(50);
+    const lastSuccessful = history.find(update => update.status === 'completed');
+    
+    // Get current system status  
     const status = await updateService.getUpdateStatus();
     
     console.log('📊 Current status:');
-    console.log(`   Last update: ${status.lastUpdate ? new Date(status.lastUpdate).toLocaleString() : 'Never'}`);
-    console.log(`   Version: ${status.currentVersion || 'Unknown'}`);
-    console.log(`   Total divisions: ${status.totalDivisions}`);
+    console.log(`   Last update: ${lastSuccessful ? new Date(lastSuccessful.completed_at!).toLocaleString() : 'Never'}`);
+    console.log(`   Divisions in DB: ${status.divisions.count}`);
+    console.log(`   Countries: ${status.countries.count}`);
+    console.log(`   Cities: ${status.cities.count}`);
     
-    // Note: To check for actual updates, use 'update' command
+    if (lastSuccessful) {
+      console.log(`   Last update message: ${lastSuccessful.message}`);
+      console.log(`   Divisions processed: ${lastSuccessful.divisions_count || 'Unknown'}`);
+    }
+    
+    console.log('');
     console.log('💡 Use "bun run cli/update.ts update" to check and apply updates');
   } catch (error) {
     console.error('❌ Failed to check updates:', error);

@@ -40,8 +40,6 @@ export interface Division {
   additional_ids?: any;
   photos?: any;
   attributes?: any;
-  created_at?: Date;
-  updated_at?: Date;
   nova_created_at?: Date;
   nova_updated_at?: Date;
   nova_deleted_at?: Date;
@@ -51,8 +49,6 @@ export interface Country {
   code: string;
   name: string;
   divisions_count: number;
-  created_at?: Date;
-  updated_at?: Date;
 }
 
 export interface City {
@@ -63,8 +59,6 @@ export interface City {
   region_name?: string;
   parent_region_name?: string;
   divisions_count: number;
-  created_at?: Date;
-  updated_at?: Date;
 }
 
 export interface UpdateLog {
@@ -75,9 +69,6 @@ export interface UpdateLog {
   started_at: Date;
   completed_at?: Date;
   error_details?: string;
-  total_processed?: number;
-  total_inserted?: number;
-  total_updated?: number;
 }
 
 export interface SearchParams {

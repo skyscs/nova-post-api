@@ -54,6 +54,14 @@ export class MigrationManager {
         await this.markMigrationAsRun('create_update_logs');
       }
 
+      // Update update_logs table structure if needed
+      const updateLogsStructureUpdated = await this.isMigrationRun('update_logs_structure_v2');
+      if (!updateLogsStructureUpdated) {
+        logger.info('Updating update_logs table structure...');
+        await this.updateUpdateLogsStructure();
+        await this.markMigrationAsRun('update_logs_structure_v2');
+      }
+
       logger.info('Database migrations completed successfully');
     } catch (error) {
       logger.error('Migration failed:', error);
@@ -212,6 +220,63 @@ export class MigrationManager {
     `;
     
     const result = await db.query(query, [migrationName]);
+    return result.rows[0].exists;
+  }
+
+  /**
+   * Update update_logs table structure
+   */
+  private async updateUpdateLogsStructure(): Promise<void> {
+    try {
+      // Check which columns are missing and add them
+      const columnsToAdd = [
+        { name: 'message', type: 'TEXT' },
+        { name: 'divisions_count', type: 'INTEGER DEFAULT 0' },
+        { name: 'error_details', type: 'TEXT' }
+      ];
+
+      for (const column of columnsToAdd) {
+        const columnExists = await this.checkColumnExists('update_logs', column.name);
+        if (!columnExists) {
+          logger.info(`Adding column ${column.name} to update_logs table`);
+          await db.query(`ALTER TABLE update_logs ADD COLUMN IF NOT EXISTS ${column.name} ${column.type}`);
+          logger.info(`✅ Column ${column.name} added successfully`);
+        } else {
+          logger.info(`Column ${column.name} already exists`);
+        }
+      }
+      
+      // Also ensure the old error_message column is renamed to error_details if it exists
+      const errorMessageExists = await this.checkColumnExists('update_logs', 'error_message');
+      const errorDetailsExists = await this.checkColumnExists('update_logs', 'error_details');
+      
+      if (errorMessageExists && !errorDetailsExists) {
+        logger.info('Renaming error_message to error_details');
+        await db.query('ALTER TABLE update_logs RENAME COLUMN error_message TO error_details');
+        logger.info('✅ Column renamed successfully');
+      }
+      
+      logger.info('✅ update_logs table structure updated successfully');
+    } catch (error) {
+      logger.error('❌ Failed to update update_logs structure:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a column exists in a table
+   */
+  private async checkColumnExists(tableName: string, columnName: string): Promise<boolean> {
+    const query = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = $1 
+        AND column_name = $2
+      );
+    `;
+    
+    const result = await db.query(query, [tableName, columnName]);
     return result.rows[0].exists;
   }
 } 

@@ -13,28 +13,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Deploy to server via SSH
+    - name: Copy files to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        source: "./*"
+        target: "/var/www/nova-post-api/"
+        strip_components: 0
+        overwrite: true
+
+    - name: Setup and start services
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
         password: ${{ secrets.VPS_PASSWORD }}
         script: |
-          set -e
-          
-          # Create directory if not exists
-          mkdir -p /var/www/nova-post-api
           cd /var/www/nova-post-api
-          
-          # Backup current version if exists
-          if [ -d "current" ]; then
-            rm -rf backup 2>/dev/null || true
-            mv current backup 2>/dev/null || true
-          fi
-          
-          # Clone fresh code
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git current
-          cd current
           
           # Create production environment file
           cat > .env << 'EOF'
@@ -49,10 +46,8 @@ jobs:
           NOVA_POST_API_URL=https://api-cdn.novapost.pl/dictionary/divisions/mobile/full/en/versions.json
           EOF
           
-          # Stop old containers
+          # Stop old containers and start new ones
           docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
-          
-          # Build and start new containers
           docker-compose -f docker-compose.prod.yml up -d --build
           
           # Wait for service to be ready
@@ -66,31 +61,19 @@ jobs:
               break
             fi
             if [ $i -eq 10 ]; then
-              echo "❌ Health check failed! Rolling back..."
-              docker-compose -f docker-compose.prod.yml down
-              if [ -d "../backup" ]; then
-                rm -rf ../current
-                mv ../backup ../current
-                cd ../current
-                docker-compose -f docker-compose.prod.yml up -d
-              fi
+              echo "❌ Health check failed!"
               exit 1
             fi
             echo "Attempt $i failed, retrying..."
             sleep 5
           done
           
-          # Setup Nginx configuration
+          # Setup Nginx configuration (only once)
           if [ ! -f "/etc/nginx/sites-available/nova-post-api" ]; then
             cat > /tmp/nova-post-api-nginx << 'NGINXEOF'
           server {
               listen 80;
               server_name nova-post-api.ukrpop.com;
-              
-              # Security headers
-              add_header X-Frame-Options "SAMEORIGIN" always;
-              add_header X-XSS-Protection "1; mode=block" always;
-              add_header X-Content-Type-Options "nosniff" always;
               
               location / {
                   proxy_pass http://localhost:3002;
@@ -102,11 +85,6 @@ jobs:
                   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                   proxy_set_header X-Forwarded-Proto $scheme;
                   proxy_cache_bypass $http_upgrade;
-                  
-                  # Timeouts
-                  proxy_connect_timeout 60s;
-                  proxy_send_timeout 60s;
-                  proxy_read_timeout 60s;
               }
           }
           NGINXEOF
@@ -116,6 +94,6 @@ jobs:
             sudo nginx -t && sudo systemctl reload nginx
             
             # Get SSL certificate
-            sudo certbot --nginx -d nova-post-api.ukrpop.com --non-interactive --agree-tos --email admin@ukrpop.com --redirect
+            sudo certbot --nginx -d nova-post-api.ukrpop.com --non-interactive --agree-tos --email admin@ukrpop.com --redirect || true
           fi
           

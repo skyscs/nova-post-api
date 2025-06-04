@@ -169,13 +169,15 @@ export class MigrationManager {
     const query = `
       CREATE TABLE IF NOT EXISTS update_logs (
         id SERIAL PRIMARY KEY,
+        status VARCHAR(20) DEFAULT 'running',
+        message TEXT,
+        divisions_count INTEGER DEFAULT 0,
         started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP,
-        status VARCHAR(20) DEFAULT 'running',
+        error_details TEXT,
         total_processed INTEGER DEFAULT 0,
         total_inserted INTEGER DEFAULT 0,
-        total_updated INTEGER DEFAULT 0,
-        error_message TEXT
+        total_updated INTEGER DEFAULT 0
       );
       
       CREATE INDEX IF NOT EXISTS idx_update_logs_started_at ON update_logs(started_at);

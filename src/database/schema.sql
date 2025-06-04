@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS cities CASCADE;
 CREATE TABLE countries (
     code VARCHAR(2) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    divisions_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -22,6 +23,7 @@ CREATE TABLE cities (
     country_code VARCHAR(2) REFERENCES countries(code),
     region_name VARCHAR(100),
     parent_region_name VARCHAR(100),
+    divisions_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,0 +1,40 @@
+{
+  "name": "nova-post-api",
+  "version": "1.0.0",
+  "description": "API for NovaPost divisions database with geospatial search",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun dist/index.js",
+    "db:migrate": "bun src/scripts/migrate.ts",
+    "db:seed": "bun src/scripts/seed.ts",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.{ts,js,json}"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.8.2",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "hono": "^3.11.7",
+    "node-cron": "^3.0.3",
+    "pg": "^8.11.3",
+    "stream-json": "^1.9.1",
+    "winston": "^3.11.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.10.9",
+    "@types/stream-json": "^1.7.8",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

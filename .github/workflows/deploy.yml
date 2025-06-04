@@ -1,100 +1,121 @@
-name: Deploy NovaPost API
+name: Deploy Nova Post API
 
 on:
   push:
-    branches: [main, master]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgis/postgis:15-3.3
-        env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run linter
-        run: bun run lint
-        continue-on-error: true
-
-      - name: Build application
-        run: bun run build
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.PORT }}
-          script: |
-            # Navigate to project directory
-            cd /home/${{ secrets.USERNAME }}/nova-post-api || mkdir -p /home/${{ secrets.USERNAME }}/nova-post-api && cd /home/${{ secrets.USERNAME }}/nova-post-api
+    - name: Deploy to server via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        script: |
+          set -e
+          
+          # Create directory if not exists
+          mkdir -p /var/www/nova-post-api
+          cd /var/www/nova-post-api
+          
+          # Backup current version if exists
+          if [ -d "current" ]; then
+            rm -rf backup 2>/dev/null || true
+            mv current backup 2>/dev/null || true
+          fi
+          
+          # Clone fresh code
+          git clone https://github.com/${{ github.repository }}.git current
+          cd current
+          
+          # Create production environment file
+          cat > .env << 'EOF'
+          NODE_ENV=production
+          PORT=3002
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_HOST=localhost
+          POSTGRES_PORT=5432
+          NOVA_POST_API_URL=https://api-cdn.novapost.pl/dictionary/divisions/mobile/full/en/versions.json
+          EOF
+          
+          # Stop old containers
+          docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+          
+          # Build and start new containers
+          docker-compose -f docker-compose.prod.yml up -d --build
+          
+          # Wait for service to be ready
+          echo "Waiting for service to start..."
+          sleep 30
+          
+          # Health check
+          for i in {1..10}; do
+            if curl -f http://localhost:3002/api/v1/system/health; then
+              echo "✅ Deployment successful!"
+              break
+            fi
+            if [ $i -eq 10 ]; then
+              echo "❌ Health check failed! Rolling back..."
+              docker-compose -f docker-compose.prod.yml down
+              if [ -d "../backup" ]; then
+                rm -rf ../current
+                mv ../backup ../current
+                cd ../current
+                docker-compose -f docker-compose.prod.yml up -d
+              fi
+              exit 1
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 5
+          done
+          
+          # Setup Nginx configuration
+          if [ ! -f "/etc/nginx/sites-available/nova-post-api" ]; then
+            cat > /tmp/nova-post-api-nginx << 'NGINXEOF'
+          server {
+              listen 80;
+              server_name nova-post-api.ukrpop.com;
+              
+              # Security headers
+              add_header X-Frame-Options "SAMEORIGIN" always;
+              add_header X-XSS-Protection "1; mode=block" always;
+              add_header X-Content-Type-Options "nosniff" always;
+              
+              location / {
+                  proxy_pass http://localhost:3002;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_cache_bypass $http_upgrade;
+                  
+                  # Timeouts
+                  proxy_connect_timeout 60s;
+                  proxy_send_timeout 60s;
+                  proxy_read_timeout 60s;
+              }
+          }
+          NGINXEOF
             
-            # Pull latest changes
-            git fetch origin
-            git reset --hard origin/main
+            sudo mv /tmp/nova-post-api-nginx /etc/nginx/sites-available/nova-post-api
+            sudo ln -sf /etc/nginx/sites-available/nova-post-api /etc/nginx/sites-enabled/
+            sudo nginx -t && sudo systemctl reload nginx
             
-            # Create .env file from secrets
-            cat > .env << EOF
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-            POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
-            POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
-            PORT=${{ secrets.APP_PORT }}
-            NODE_ENV=production
-            NOVA_POST_API_URL=${{ secrets.NOVA_POST_API_URL }}
-            UPDATE_CRON=${{ secrets.UPDATE_CRON }}
-            LOG_LEVEL=${{ secrets.LOG_LEVEL }}
-            EOF
-            
-            # Build and restart services
-            docker-compose down
-            docker-compose pull
-            docker-compose up -d --build
-            
-            # Clean up old images
-            docker image prune -f
-            
-            # Wait for services to be ready
-            sleep 30
-            
-            # Check if services are running
-            docker-compose ps
-            
-            # Test API health
-            curl -f http://localhost:${{ secrets.APP_PORT }}/api/v1/system/health || exit 1 
+            # Get SSL certificate
+            sudo certbot --nginx -d nova-post-api.ukrpop.com --non-interactive --agree-tos --email admin@ukrpop.com --redirect
+          fi
+          

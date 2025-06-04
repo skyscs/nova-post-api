@@ -33,7 +33,7 @@ jobs:
           fi
           
           # Clone fresh code
-          git clone https://github.com/${{ github.repository }}.git current
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git current
           cd current
           
           # Create production environment file

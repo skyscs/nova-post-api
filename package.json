@@ -10,7 +10,12 @@
     "db:migrate": "bun src/scripts/migrate.ts",
     "db:seed": "bun src/scripts/seed.ts",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.{ts,js,json}"
+    "format": "prettier --write src/**/*.{ts,js,json}",
+    "cli:help": "bun src/cli/update.ts",
+    "cli:status": "bun src/cli/update.ts status",
+    "cli:check": "bun src/cli/update.ts check",
+    "cli:update": "bun src/cli/update.ts update",
+    "cli:history": "bun src/cli/update.ts history"
   },
   "dependencies": {
     "@hono/node-server": "^1.8.2",

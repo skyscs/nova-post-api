@@ -42,38 +42,6 @@ system.get('/status', async (c) => {
   }
 });
 
-// Load data from file
-system.post('/load-data', async (c) => {
-  try {
-    const body = await c.req.json().catch(() => ({}));
-    const filePath = body.filePath || './data-example.json';
-    
-    logger.info(`Starting data load from file: ${filePath}`);
-    
-    const result = await updateService.updateFromFile(filePath);
-    
-    if (result.success) {
-      return c.json({
-        success: true,
-        message: result.message,
-        stats: result.stats
-      });
-    } else {
-      return c.json({
-        success: false,
-        message: result.message
-      }, 500);
-    }
-  } catch (error) {
-    const message = `Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    logger.error(message);
-    return c.json({
-      success: false,
-      message
-    }, 500);
-  }
-});
-
 // Get update status  
 system.get('/update-status', async (c) => {
   try {
@@ -83,26 +51,6 @@ system.get('/update-status', async (c) => {
     logger.error('Failed to get update status:', error);
     return c.json({ 
       error: 'Failed to get update status' 
-    }, 500);
-  }
-});
-
-// Manual update trigger
-system.post('/update', async (c) => {
-  try {
-    const updated = await updateService.checkForUpdates();
-    
-    return c.json({
-      success: true,
-      data: {
-        updated,
-        message: updated ? 'Database updated successfully' : 'No updates available'
-      }
-    });
-  } catch (error) {
-    return c.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
     }, 500);
   }
 });
@@ -125,36 +73,13 @@ system.get('/updates/history', async (c) => {
   }
 });
 
-// Update from NovaPost API
-system.post('/update-from-api', async (c) => {
-  try {
-    const body = await c.req.json().catch(() => ({}));
-    const limit = body.limit; // No default limit - load everything if not specified
-    
-    logger.info(`Starting data update from NovaPost API with limit: ${limit}`);
-    
-    const result = await updateService.updateFromApi(limit);
-    
-    if (result.success) {
-      return c.json({
-        success: true,
-        message: result.message,
-        stats: result.stats
-      });
-    } else {
-      return c.json({
-        success: false,
-        message: result.message
-      }, 500);
-    }
-  } catch (error) {
-    const message = `Failed to update from API: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    logger.error(message);
-    return c.json({
-      success: false,
-      message
-    }, 500);
-  }
-});
+// REMOVED UNSAFE PUBLIC ENDPOINTS:
+// - POST /update (manual update trigger)
+// - POST /load-data (load from file)  
+// - POST /update-from-api (update from NovaPost API)
+// 
+// These operations are now only available via:
+// 1. Automatic cron job (daily at 03:00)
+// 2. CLI commands (run directly on server)
 
 export default system; 

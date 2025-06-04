@@ -7,6 +7,7 @@ import cron from 'node-cron';
 import divisionsRouter from './routes/divisions.js';
 import systemRouter from './routes/system.js';
 import { UpdateService } from './services/updateService.js';
+import { MigrationManager } from './database/migrations.js';
 import { db } from './utils/database.js';
 import { logger as appLogger } from './utils/logger.js';
 
@@ -78,6 +79,12 @@ async function startServer() {
     if (!dbConnected) {
       throw new Error('Database connection failed');
     }
+    
+    appLogger.info('Database connection successful');
+
+    // Run database migrations
+    const migrationManager = new MigrationManager();
+    await migrationManager.runMigrations();
 
     // Start server
     serve({

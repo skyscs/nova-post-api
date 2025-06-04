@@ -125,11 +125,18 @@ export class MigrationManager {
       const schemaSql = fs.readFileSync(schemaPath, 'utf-8');
       logger.info(`Schema file size: ${schemaSql.length} characters`);
       
-      // Split by semicolons and execute each statement
-      const statements = schemaSql
+      // Remove comments and normalize whitespace
+      const cleanSql = schemaSql
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('--'))
+        .join(' ');
+      
+      // Split by semicolons and clean up
+      const statements = cleanSql
         .split(';')
         .map(stmt => stmt.trim())
-        .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+        .filter(stmt => stmt.length > 0);
 
       logger.info(`Found ${statements.length} SQL statements to execute`);
 
@@ -137,7 +144,7 @@ export class MigrationManager {
         const statement = statements[i].trim();
         if (statement) {
           try {
-            logger.info(`Executing statement ${i + 1}/${statements.length}: ${statement.substring(0, 50)}...`);
+            logger.info(`Executing statement ${i + 1}/${statements.length}: ${statement.substring(0, 80)}...`);
             await db.query(statement);
             logger.info(`✅ Statement ${i + 1} executed successfully`);
           } catch (error) {

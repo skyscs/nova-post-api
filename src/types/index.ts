@@ -3,47 +3,81 @@ export * from './division';
 
 export interface Division {
   id?: number;
-  nova_id: string;
+  nova_id: number;
   name: string;
-  country: string;
+  short_name?: string;
+  external_id?: string;
+  source?: string;
   country_code: string;
-  city: string;
+  city_id?: number;
   address?: string;
-  phone?: string;
-  email?: string;
-  working_hours?: string;
+  display_address?: string;
+  number?: string;
+  status?: string;
+  customer_service_available?: boolean;
+  division_category?: string;
+  payment_enabled_delivery?: boolean;
+  payment_enabled_pickup?: boolean;
+  responsible_person?: string;
   latitude?: number;
   longitude?: number;
-  metadata?: Record<string, any>;
+  long_term_location?: boolean;
+  max_weight_place_sender?: number;
+  max_length_place_sender?: number;
+  max_width_place_sender?: number;
+  max_height_place_sender?: number;
+  max_weight_place_recipient?: number;
+  max_length_place_recipient?: number;
+  max_width_place_recipient?: number;
+  max_height_place_recipient?: number;
+  prohibited_sending?: boolean;
+  prohibited_issuance?: boolean;
+  max_cost_place?: number;
+  max_declared_cost_place?: number;
+  work_schedule?: any;
+  full_address?: any;
+  settings?: any;
+  additional_ids?: any;
+  photos?: any;
+  attributes?: any;
+  created_at?: Date;
+  updated_at?: Date;
+  nova_created_at?: Date;
+  nova_updated_at?: Date;
+  nova_deleted_at?: Date;
+}
+
+export interface Country {
+  code: string;
+  name: string;
+  divisions_count: number;
   created_at?: Date;
   updated_at?: Date;
 }
 
-export interface Country {
-  id?: number;
-  name: string;
-  code: string;
-  divisions_count: number;
-  created_at?: Date;
-}
-
 export interface City {
   id?: number;
+  nova_id?: number;
   name: string;
-  country: string;
   country_code: string;
+  region_name?: string;
+  parent_region_name?: string;
   divisions_count: number;
   created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface UpdateLog {
   id?: number;
-  status: 'started' | 'completed' | 'failed';
+  status: 'started' | 'completed' | 'failed' | 'running';
   message?: string;
   divisions_count?: number;
   started_at: Date;
   completed_at?: Date;
   error_details?: string;
+  total_processed?: number;
+  total_inserted?: number;
+  total_updated?: number;
 }
 
 export interface SearchParams {

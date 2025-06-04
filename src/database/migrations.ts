@@ -7,7 +7,24 @@ export class MigrationManager {
   private migrationsPath: string;
 
   constructor() {
-    this.migrationsPath = path.join(process.cwd(), 'src', 'database');
+    // Try different paths for schema.sql
+    const possiblePaths = [
+      path.join(process.cwd(), 'src', 'database'),
+      path.join(process.cwd(), 'dist', 'database'),
+      path.join(__dirname, '../database'),
+      path.join(__dirname, './'),
+    ];
+    
+    // Find the first path that contains schema.sql
+    this.migrationsPath = possiblePaths[0]; // default
+    
+    for (const testPath of possiblePaths) {
+      const schemaPath = path.join(testPath, 'schema.sql');
+      if (fs.existsSync(schemaPath)) {
+        this.migrationsPath = testPath;
+        break;
+      }
+    }
   }
 
   /**
@@ -95,19 +112,46 @@ export class MigrationManager {
    * Run initial database schema
    */
   private async runInitialSchema(): Promise<void> {
-    const schemaPath = path.join(this.migrationsPath, 'schema.sql');
-    const schemaSql = fs.readFileSync(schemaPath, 'utf-8');
-    
-    // Split by semicolons and execute each statement
-    const statements = schemaSql
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-
-    for (const statement of statements) {
-      if (statement.trim()) {
-        await db.query(statement);
+    try {
+      const schemaPath = path.join(this.migrationsPath, 'schema.sql');
+      
+      logger.info(`Reading schema from: ${schemaPath}`);
+      
+      // Check if file exists
+      if (!fs.existsSync(schemaPath)) {
+        throw new Error(`Schema file not found at: ${schemaPath}`);
       }
+      
+      const schemaSql = fs.readFileSync(schemaPath, 'utf-8');
+      logger.info(`Schema file size: ${schemaSql.length} characters`);
+      
+      // Split by semicolons and execute each statement
+      const statements = schemaSql
+        .split(';')
+        .map(stmt => stmt.trim())
+        .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+
+      logger.info(`Found ${statements.length} SQL statements to execute`);
+
+      for (let i = 0; i < statements.length; i++) {
+        const statement = statements[i].trim();
+        if (statement) {
+          try {
+            logger.info(`Executing statement ${i + 1}/${statements.length}: ${statement.substring(0, 50)}...`);
+            await db.query(statement);
+            logger.info(`✅ Statement ${i + 1} executed successfully`);
+          } catch (error) {
+            logger.error(`❌ Error executing statement ${i + 1}:`, error);
+            logger.error(`Failed statement: ${statement}`);
+            throw error;
+          }
+        }
+      }
+      
+      logger.info('✅ Initial schema executed successfully');
+    } catch (error) {
+      logger.error('❌ Failed to run initial schema:', error);
+      throw error;
     }
   }
 

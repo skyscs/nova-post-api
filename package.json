@@ -15,18 +15,24 @@
     "cli:status": "bun src/cli/update.ts status",
     "cli:check": "bun src/cli/update.ts check",
     "cli:update": "bun src/cli/update.ts update",
-    "cli:history": "bun src/cli/update.ts history"
+    "cli:history": "bun src/cli/update.ts history",
+    "docs:generate": "bun scripts/generate-docs.ts",
+    "docs:serve": "cd docs/generated && python3 -m http.server 8080"
   },
   "dependencies": {
     "@hono/node-server": "^1.8.2",
+    "@hono/swagger-ui": "^0.5.1",
+    "@hono/zod-openapi": "^0.19.8",
+    "@types/js-yaml": "^4.0.9",
     "axios": "^1.6.2",
     "dotenv": "^16.3.1",
     "hono": "^3.11.7",
+    "js-yaml": "^4.1.0",
     "node-cron": "^3.0.3",
     "pg": "^8.11.3",
     "stream-json": "^1.9.1",
     "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "zod": "^3.25.51"
   },
   "devDependencies": {
     "@types/node": "^20.10.4",

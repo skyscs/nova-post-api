@@ -6,6 +6,7 @@ import { logger } from 'hono/logger';
 import cron from 'node-cron';
 import divisionsRouter from './routes/divisions.js';
 import systemRouter from './routes/system.js';
+import docsRouter from './routes/docs.js';
 import { UpdateService } from './services/updateService.js';
 import { MigrationManager } from './database/migrations.js';
 import { db } from './utils/database.js';
@@ -25,6 +26,7 @@ app.use('*', logger());
 // Routes
 app.route('/api/v1/divisions', divisionsRouter);
 app.route('/api/v1/system', systemRouter);
+app.route('/api/v1/docs', docsRouter);
 
 // Root endpoint
 app.get('/', (c) => {
@@ -34,7 +36,13 @@ app.get('/', (c) => {
     description: 'API for NovaPost divisions with geospatial search capabilities',
     endpoints: {
       divisions: '/api/v1/divisions',
-      system: '/api/v1/system'
+      system: '/api/v1/system',
+      docs: '/api/v1/docs'
+    },
+    documentation: {
+      swagger: '/api/v1/docs/swagger',
+      openapi_json: '/api/v1/docs/openapi.json',
+      openapi_yaml: '/api/v1/docs/openapi.yaml'
     }
   });
 });

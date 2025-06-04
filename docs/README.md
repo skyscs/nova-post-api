@@ -1,263 +1,133 @@
-# NovaPost Divisions API
+# NovaPost API Documentation
 
-API for working with NovaPost postal divisions database with geospatial search capabilities.
+Welcome to the NovaPost Divisions API documentation! 🚀
 
-## Features
+## 📖 About the Project
 
-- ✅ Geospatial search for nearby divisions
-- ✅ Search by country and city
-- ✅ Automatic daily database updates
-- ✅ PostGIS for efficient spatial queries
-- ✅ Docker deployment
-- ✅ Comprehensive logging
-- ✅ Health monitoring
+NovaPost API is a high-performance REST API for working with NovaPost postal divisions database with geospatial search capabilities.
 
-## Tech Stack
+### Key Features
+- 🌍 **Geospatial Search** - find nearby divisions by coordinates
+- 🔍 **Country and City Search** - filter divisions by location
+- 📊 **System Monitoring** - health checks and statistics
+- 🔄 **Automatic Updates** - daily synchronization with NovaPost API
+- 🛡️ **Security** - read-only endpoints, CLI-based management
 
-- **Runtime**: Bun
-- **Framework**: Hono
-- **Database**: PostgreSQL with PostGIS
-- **Containerization**: Docker & Docker Compose
-- **CI/CD**: GitHub Actions
+## 🌐 Interactive Documentation
 
-## Quick Start
+### Online (Live API)
+- **Swagger UI**: http://localhost:3001/api/v1/docs/swagger
+- **OpenAPI JSON**: http://localhost:3001/api/v1/docs/openapi.json  
+- **OpenAPI YAML**: http://localhost:3001/api/v1/docs/openapi.yaml
 
-### Local Development
+### Static Documentation
+- **HTML**: [docs/generated/index.html](generated/index.html)
+- **Markdown**: [docs/generated/api-documentation.md](generated/api-documentation.md)
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd nova-post-api
-   ```
+## 📋 Documentation Sections
 
-2. **Install dependencies**
-   ```bash
-   bun install
-   ```
+| Document | Description |
+|----------|-------------|
+| [OpenAPI Spec](openapi.yaml) | Complete OpenAPI 3.0 specification |
+| [API Guide](generated/api-documentation.md) | Detailed description of all endpoints |
+| [Examples](EXAMPLES.md) | Practical API usage examples |
+| [CLI Usage](CLI.md) | Command line interface guide |
+| [Security](SECURITY.md) | Security and best practices |
 
-3. **Setup environment**
-   ```bash
-   cp env.example .env
-   # Edit .env with your configuration
-   ```
+## 🚀 Quick Start
 
-4. **Start services**
-   ```bash
-   docker-compose up -d postgres
-   bun run dev
-   ```
-
-### Production Deployment
-
-1. **Configure secrets in GitHub repository**
-   - `HOST` - Server hostname/IP
-   - `USERNAME` - SSH username
-   - `SSH_KEY` - Private SSH key
-   - `PORT` - SSH port (usually 22)
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `APP_PORT` - Application port (default: 3001)
-   - `NOVA_POST_API_URL` - NovaPost API endpoint
-   - And other environment variables...
-
-2. **Deploy via GitHub Actions**
-   ```bash
-   git push origin main
-   ```
-
-## API Endpoints
-
-### Base URL
+### 1. Check API Status
+```bash
+curl http://localhost:3001/api/v1/system/health
 ```
-http://localhost:3001/api/v1
+
+### 2. Find Nearby Divisions
+```bash
+curl "http://localhost:3001/api/v1/divisions/nearby?lat=50.4501&lng=30.5234&limit=5"
 ```
+
+### 3. List Countries
+```bash
+curl http://localhost:3001/api/v1/divisions/countries
+```
+
+## 📊 Main Endpoints
 
 ### Divisions
+- `GET /api/v1/divisions/nearby` - Find nearby divisions by coordinates
+- `GET /api/v1/divisions/search` - Search divisions by filters
+- `GET /api/v1/divisions/{id}` - Get division by ID
+- `GET /api/v1/divisions/countries` - List all countries
+- `GET /api/v1/divisions/countries/{code}/cities` - Cities by country
 
-#### Get Nearby Divisions
-```http
-GET /divisions/nearby?lat=50.4501&lng=30.5234&radius=10&limit=20
+### System
+- `GET /api/v1/system/health` - System health check
+- `GET /api/v1/system/status` - System and database status
+- `GET /api/v1/system/update-status` - Update information
+- `GET /api/v1/system/updates/history` - Updates history
+
+## 🔧 Documentation Generation
+
+### Regenerate Documentation
+```bash
+# Generate static documentation
+bun run docs:generate
+
+# Start local server for viewing
+bun run docs:serve
 ```
 
-**Parameters:**
-- `lat` (optional) - Latitude
-- `lng` (optional) - Longitude  
-- `radius` (optional) - Search radius in kilometers
-- `country` (optional) - Country filter
-- `city` (optional) - City filter
-- `limit` (optional) - Results limit (default: 50)
-- `offset` (optional) - Results offset (default: 0)
+### Update OpenAPI Specification
+1. Edit `docs/openapi.yaml`
+2. Run `bun run docs:generate`
+3. Check changes in browser
 
-**Response:**
+## 📝 Response Formats
+
+All API endpoints return data in JSON format:
+
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": 1,
-      "nova_id": "12345",
-      "name": "Division Name",
-      "country": "Ukraine", 
-      "country_code": "UA",
-      "city": "Kyiv",
-      "address": "Street Address",
-      "phone": "+380123456789",
-      "email": "division@novapost.ua",
-      "working_hours": "Mon-Fri 9:00-18:00",
-      "latitude": 50.4501,
-      "longitude": 30.5234,
-      "distance": 5.2,
-      "metadata": {},
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
-    }
-  ],
+  "data": {...},
   "pagination": {
     "page": 1,
-    "limit": 20,
-    "total": 1500,
-    "totalPages": 75
+    "limit": 10,
+    "total": 150,
+    "totalPages": 15
   }
 }
 ```
 
-#### Search Divisions
-```http
-GET /divisions/search?country=Ukraine&city=Kyiv&limit=10
-```
+## 🛡️ Security
 
-#### Get Division by ID
-```http
-GET /divisions/{id}
-```
+- All endpoints are read-only (GET methods only)
+- Updates available only via CLI with SSH access
+- Automatic data updates via cron jobs
+- Details: [SECURITY.md](SECURITY.md)
 
-#### Get All Countries
-```http
-GET /divisions/countries
-```
+## 🔄 Data Updates
 
-#### Get Cities by Country
-```http
-GET /divisions/countries/{countryCode}/cities
-```
+- **Automatically**: Daily at 03:00 UTC
+- **Manually**: Via CLI commands (requires SSH access)
+- **Monitoring**: `/api/v1/system/update-status`
 
-#### Get Divisions by City
-```http
-GET /divisions/cities/{city}/{countryCode}/divisions
-```
+## 📈 Performance
 
-### System
+- Database: PostGIS with spatial indexes
+- Pagination: Up to 100 records per request
+- Caching: Optimized SQL queries
+- Limits: Rate limiting and timeout protection
 
-#### Health Check
-```http
-GET /system/health
-```
+## 🤝 Support
 
-#### System Status
-```http
-GET /system/status
-```
+If you have questions or suggestions:
+- 📧 Email: your-email@example.com
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/nova-post-api/issues)
+- 📖 Wiki: [Project Wiki](https://github.com/yourusername/nova-post-api/wiki)
 
-#### Manual Update
-```http
-POST /system/update
-```
+---
 
-#### Update History
-```http
-GET /system/updates/history?limit=10
-```
-
-## Database Schema
-
-### Tables
-
-- **divisions** - Main divisions data with PostGIS geometry
-- **countries** - Countries lookup table
-- **cities** - Cities lookup table  
-- **update_logs** - Update operation logs
-
-### Indexes
-
-- Spatial index on `location` column for fast geospatial queries
-- B-tree indexes on `country`, `city`, and `nova_id` columns
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | - |
-| `PORT` | Application port | 3001 |
-| `NODE_ENV` | Environment | development |
-| `NOVA_POST_API_URL` | NovaPost API endpoint | - |
-| `UPDATE_CRON` | Cron expression for updates | 0 2 * * * |
-| `LOG_LEVEL` | Logging level | info |
-
-## Development
-
-### Scripts
-
-```bash
-# Development
-bun run dev
-
-# Build
-bun run build
-
-# Production
-bun run start
-
-# Database migration
-bun run db:migrate
-
-# Linting
-bun run lint
-
-# Formatting
-bun run format
-```
-
-### Adding New Features
-
-1. Create feature branch
-2. Implement changes
-3. Add tests
-4. Update documentation
-5. Create pull request
-
-## Monitoring
-
-### Logs
-
-Application logs are stored in the `logs/` directory:
-- `combined.log` - All logs
-- `error.log` - Error logs only
-
-### Health Checks
-
-Monitor the API health at `/api/v1/system/health`
-
-### Metrics
-
-System status and database information at `/api/v1/system/status`
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database connection failed**
-   - Check DATABASE_URL
-   - Ensure PostgreSQL is running
-   - Verify PostGIS extension is installed
-
-2. **Updates not working**
-   - Check NOVA_POST_API_URL accessibility
-   - Verify cron expression format
-   - Check update logs via API
-
-3. **Geospatial queries slow**
-   - Ensure spatial index exists on location column
-   - Check PostGIS configuration
-
-### Support
-
-For issues and questions, please check the logs and system status first. 
+**API Version**: 1.1.0  
+**Last Documentation Update**: $(date)  
+**Status**: Production Ready ✅ 

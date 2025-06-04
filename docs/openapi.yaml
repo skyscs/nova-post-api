@@ -1,0 +1,765 @@
+openapi: 3.0.3
+info:
+  title: NovaPost Divisions API
+  description: |
+    High-performance REST API for working with NovaPost postal divisions database with geospatial search capabilities.
+    
+    ## Key Features
+    - 🌍 **Geospatial Search** - find nearby divisions by coordinates
+    - 🔍 **Country and City Search** - filter divisions by location
+    - 📊 **System Monitoring** - health checks and statistics
+    - 🔄 **Automatic Updates** - daily synchronization with NovaPost API
+    
+    ## Security
+    - All endpoints are read-only (GET methods only)
+    - Update management available only via CLI with SSH access
+    - Comprehensive operation logging
+  version: 1.1.0
+  contact:
+    name: NovaPost API Support
+    url: https://github.com/yourusername/nova-post-api
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development server
+  - url: https://api.yourserver.com/api/v1
+    description: Production server
+
+tags:
+  - name: divisions
+    description: Operations with postal divisions
+  - name: system
+    description: System information and monitoring
+
+paths:
+  /divisions/nearby:
+    get:
+      tags:
+        - divisions
+      summary: Find nearby divisions
+      description: |
+        Find the nearest postal divisions by geographic coordinates.
+        Supports filtering by radius, country, and city.
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: Latitude coordinate
+          schema:
+            type: number
+            format: float
+            minimum: -90
+            maximum: 90
+          example: 50.4501
+        - name: lng
+          in: query
+          required: true
+          description: Longitude coordinate
+          schema:
+            type: number
+            format: float
+            minimum: -180
+            maximum: 180
+          example: 30.5234
+        - name: radius
+          in: query
+          description: Search radius in kilometers
+          schema:
+            type: number
+            format: float
+            minimum: 0.1
+            maximum: 1000
+            default: 10
+          example: 50
+        - name: country
+          in: query
+          description: Country code (ISO 3166-1 alpha-2)
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+          example: UA
+        - name: city
+          in: query
+          description: City name (partial match)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          example: Kyiv
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+      responses:
+        '200':
+          description: List of nearby divisions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NearbyDivision'
+              example:
+                success: true
+                data:
+                  - id: 1
+                    nova_id: 4401
+                    name: "Division #1"
+                    country_code: "UA"
+                    address: "1 Khreschatyk Street"
+                    latitude: 50.4501
+                    longitude: 30.5234
+                    distance: 0.5
+                pagination:
+                  page: 1
+                  limit: 10
+                  total: 25
+                  totalPages: 3
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /divisions/search:
+    get:
+      tags:
+        - divisions
+      summary: Search divisions by filters
+      description: Search postal divisions by various criteria without geographic coordinates
+      parameters:
+        - name: country
+          in: query
+          description: Country code (ISO 3166-1 alpha-2)
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+          example: UA
+        - name: city
+          in: query
+          description: City name
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          example: Kyiv
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          description: Offset for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of divisions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Division'
+
+  /divisions/{id}:
+    get:
+      tags:
+        - divisions
+      summary: Get division by ID
+      description: Get detailed information about a specific postal division
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique division identifier
+          schema:
+            type: integer
+            minimum: 1
+          example: 4401
+      responses:
+        '200':
+          description: Division information
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Division'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /divisions/countries:
+    get:
+      tags:
+        - divisions
+      summary: List all countries
+      description: Get list of all countries with division count for each
+      responses:
+        '200':
+          description: List of countries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Country'
+              example:
+                success: true
+                data:
+                  - code: "UA"
+                    name: "Ukraine"
+                    divisions_count: 15420
+                  - code: "PL"
+                    name: "Poland"
+                    divisions_count: 8635
+
+  /divisions/countries/{countryCode}/cities:
+    get:
+      tags:
+        - divisions
+      summary: Cities by country
+      description: Get list of cities in specified country with division count
+      parameters:
+        - name: countryCode
+          in: path
+          required: true
+          description: Country code (ISO 3166-1 alpha-2)
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+          example: UA
+      responses:
+        '200':
+          description: List of cities
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/City'
+
+  /system/health:
+    get:
+      tags:
+        - system
+      summary: System health check
+      description: Basic API health and availability check
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-06-04T21:00:00.000Z"
+                  version:
+                    type: string
+                    example: "1.1.0"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /system/status:
+    get:
+      tags:
+        - system
+      summary: System status
+      description: Detailed information about database and system state
+      responses:
+        '200':
+          description: System status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+                  database:
+                    type: object
+                    properties:
+                      divisions:
+                        type: integer
+                        example: 24055
+                      countries:
+                        type: integer
+                        example: 26
+                      cities:
+                        type: integer
+                        example: 58222
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /system/update-status:
+    get:
+      tags:
+        - system
+      summary: Last update status
+      description: Information about the last data update
+      responses:
+        '200':
+          description: Update status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  divisions:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                        example: 24055
+                      last_update:
+                        type: string
+                        format: date-time
+                        example: "2025-06-04T19:26:27.164Z"
+                  countries:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                        example: 26
+                  cities:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                        example: 58222
+
+  /system/updates/history:
+    get:
+      tags:
+        - system
+      summary: Updates history
+      description: List of recent system updates
+      parameters:
+        - name: limit
+          in: query
+          description: Number of records to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Updates history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UpdateLog'
+
+components:
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Request execution status
+        data:
+          type: object
+          description: Response data
+        error:
+          type: string
+          description: Error message (if success = false)
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page
+          example: 1
+        limit:
+          type: integer
+          description: Number of items per page
+          example: 10
+        total:
+          type: integer
+          description: Total number of items
+          example: 150
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 15
+
+    Division:
+      type: object
+      description: Postal division
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+          example: 4401
+        nova_id:
+          type: integer
+          description: ID in NovaPost system
+          example: 1
+        name:
+          type: string
+          description: Division name
+          example: "Division #1"
+        short_name:
+          type: string
+          nullable: true
+          description: Short name
+        external_id:
+          type: string
+          nullable: true
+          description: External identifier
+        source:
+          type: string
+          nullable: true
+          description: Data source
+        country_code:
+          type: string
+          description: Country code (ISO 3166-1 alpha-2)
+          pattern: '^[A-Z]{2}$'
+          example: "UA"
+        city_id:
+          type: integer
+          nullable: true
+          description: City ID
+        address:
+          type: string
+          nullable: true
+          description: Division address
+          example: "1 Khreschatyk Street"
+        display_address:
+          type: string
+          nullable: true
+          description: Display address
+        number:
+          type: string
+          nullable: true
+          description: Division number
+        status:
+          type: string
+          nullable: true
+          description: Division status
+        customer_service_available:
+          type: boolean
+          description: Customer service availability
+          default: false
+        division_category:
+          type: string
+          nullable: true
+          description: Division category
+        payment_enabled_delivery:
+          type: boolean
+          description: Payment on delivery enabled
+          default: false
+        payment_enabled_pickup:
+          type: boolean
+          description: Payment on pickup enabled
+          default: false
+        responsible_person:
+          type: string
+          nullable: true
+          description: Responsible person
+        latitude:
+          type: number
+          format: float
+          nullable: true
+          description: Latitude
+          example: 50.4501
+        longitude:
+          type: number
+          format: float
+          nullable: true
+          description: Longitude
+          example: 30.5234
+        long_term_location:
+          type: boolean
+          description: Long-term location
+          default: false
+        max_weight_place_sender:
+          type: integer
+          nullable: true
+          description: Maximum weight for sender place (grams)
+        max_length_place_sender:
+          type: integer
+          nullable: true
+          description: Maximum length for sender place (cm)
+        max_width_place_sender:
+          type: integer
+          nullable: true
+          description: Maximum width for sender place (cm)
+        max_height_place_sender:
+          type: integer
+          nullable: true
+          description: Maximum height for sender place (cm)
+        max_weight_place_recipient:
+          type: integer
+          nullable: true
+          description: Maximum weight for recipient place (grams)
+        max_length_place_recipient:
+          type: integer
+          nullable: true
+          description: Maximum length for recipient place (cm)
+        max_width_place_recipient:
+          type: integer
+          nullable: true
+          description: Maximum width for recipient place (cm)
+        max_height_place_recipient:
+          type: integer
+          nullable: true
+          description: Maximum height for recipient place (cm)
+        prohibited_sending:
+          type: boolean
+          description: Sending prohibited
+          default: false
+        prohibited_issuance:
+          type: boolean
+          description: Issuance prohibited
+          default: false
+        max_cost_place:
+          type: number
+          format: decimal
+          nullable: true
+          description: Maximum place cost
+        max_declared_cost_place:
+          type: number
+          format: decimal
+          nullable: true
+          description: Maximum declared place cost
+        work_schedule:
+          type: object
+          nullable: true
+          description: Work schedule (JSON)
+        full_address:
+          type: object
+          nullable: true
+          description: Full address (JSON)
+        settings:
+          type: object
+          nullable: true
+          description: Division settings (JSON)
+        additional_ids:
+          type: object
+          nullable: true
+          description: Additional identifiers (JSON)
+        photos:
+          type: object
+          nullable: true
+          description: Photos (JSON)
+        attributes:
+          type: object
+          nullable: true
+          description: Additional attributes (JSON)
+        nova_created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Creation date in NovaPost
+        nova_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Update date in NovaPost
+        nova_deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Deletion date in NovaPost
+
+    NearbyDivision:
+      allOf:
+        - $ref: '#/components/schemas/Division'
+        - type: object
+          properties:
+            distance:
+              type: number
+              format: float
+              description: Distance to search point (km)
+              example: 1.5
+
+    Country:
+      type: object
+      description: Country
+      properties:
+        code:
+          type: string
+          description: Country code (ISO 3166-1 alpha-2)
+          pattern: '^[A-Z]{2}$'
+          example: "UA"
+        name:
+          type: string
+          description: Country name
+          example: "Ukraine"
+        divisions_count:
+          type: integer
+          description: Number of divisions in country
+          example: 15420
+
+    City:
+      type: object
+      description: City
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+          example: 1
+        nova_id:
+          type: integer
+          nullable: true
+          description: ID in NovaPost system
+        name:
+          type: string
+          description: City name
+          example: "Kyiv"
+        country_code:
+          type: string
+          description: Country code
+          example: "UA"
+        region_name:
+          type: string
+          nullable: true
+          description: Region name
+        parent_region_name:
+          type: string
+          nullable: true
+          description: Parent region name
+        divisions_count:
+          type: integer
+          description: Number of divisions in city
+          example: 45
+
+    UpdateLog:
+      type: object
+      description: Update log entry
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+        status:
+          type: string
+          enum: [started, completed, failed, running]
+          description: Update status
+        message:
+          type: string
+          nullable: true
+          description: Update message
+        divisions_count:
+          type: integer
+          nullable: true
+          description: Number of processed divisions
+        started_at:
+          type: string
+          format: date-time
+          description: Update start time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Update completion time
+        error_details:
+          type: string
+          nullable: true
+          description: Error details (JSON)
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Invalid parameters"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Division not found"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Internal server error" 

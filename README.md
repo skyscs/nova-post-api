@@ -11,6 +11,7 @@
 - 🐳 **Docker** - контейнеризация для простого развертывания
 - 📊 **Мониторинг** - логирование и health checks
 - 🔄 **CI/CD** - автоматический деплой через GitHub Actions
+- 📖 **OpenAPI Documentation** - интерактивная документация Swagger UI
 
 ## 🛠 Технологический стек
 
@@ -47,6 +48,14 @@ bun run dev
 
 1. **Настройте секреты в GitHub репозитории**
 2. **Выполните push в main ветку** для автоматического деплоя
+
+## 📖 API Documentation
+
+### Interactive Documentation
+- **Swagger UI**: http://localhost:3001/api/v1/docs/swagger
+- **OpenAPI JSON**: http://localhost:3001/api/v1/docs/openapi.json
+- **OpenAPI YAML**: http://localhost:3001/api/v1/docs/openapi.yaml
+- **Complete Documentation**: [docs/README.md](docs/README.md)
 
 ## 📡 API Endpoints
 

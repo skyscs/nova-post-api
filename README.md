@@ -1,57 +1,58 @@
 # NovaPost Divisions API
 
-🚀 High-performance REST API для работы с базой данных почтовых отделений NovaPost с поддержкой геопространственного поиска.
+🚀 High-performance REST API for working with NovaPost postal divisions database with geospatial search support.
 
-## ✨ Основные возможности
+## ✨ Key Features
 
-- 🌍 **Геопространственный поиск** - найти ближайшие отделения по координатам
-- 🔍 **Поиск по стране и городу** - фильтрация отделений 
-- 🔄 **Автоматическое обновление** - ежедневная синхронизация с NovaPost API
-- ⚡ **PostGIS** - эффективные пространственные запросы
-- 🐳 **Docker** - контейнеризация для простого развертывания
-- 📊 **Мониторинг** - логирование и health checks
-- 🔄 **CI/CD** - автоматический деплой через GitHub Actions
-- 📖 **OpenAPI Documentation** - интерактивная документация Swagger UI
+- 🌍 **Geospatial Search** - find nearest divisions by coordinates
+- 🔍 **Country and City Search** - filter divisions 
+- 🔄 **Automatic Updates** - daily synchronization with NovaPost API
+- ⚡ **PostGIS** - efficient spatial queries
+- 🐳 **Docker** - containerization for easy deployment
+- 📊 **Monitoring** - logging and health checks
+- 🔄 **CI/CD** - automatic deployment via GitHub Actions
+- 📖 **OpenAPI Documentation** - interactive Swagger UI documentation
 
-## 🛠 Технологический стек
+## 🛠 Technology Stack
 
-- **Runtime**: [Bun](https://bun.sh/) - быстрая JavaScript/TypeScript среда выполнения
-- **Framework**: [Hono](https://hono.dev/) - легкий веб-фреймворк
-- **Database**: PostgreSQL + PostGIS - пространственная база данных
+- **Runtime**: [Bun](https://bun.sh/) - fast JavaScript/TypeScript runtime
+- **Framework**: [Hono](https://hono.dev/) - lightweight web framework
+- **Database**: PostgreSQL + PostGIS - spatial database
 - **Containerization**: Docker & Docker Compose
 - **CI/CD**: GitHub Actions
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Локальная разработка
+### Local Development
 
 ```bash
-# Клонировать репозиторий
+# Clone repository
 git clone <repository-url>
 cd nova-post-api
 
-# Установить зависимости
+# Install dependencies
 bun install
 
-# Настроить окружение
+# Setup environment
 cp env.example .env
-# Отредактируйте .env файл
+# Edit .env file
 
-# Запустить базу данных
+# Start database
 docker-compose up -d postgres
 
-# Запустить в режиме разработки
+# Run in development mode
 bun run dev
 ```
 
-### Продакшн развертывание
+### Production Deployment
 
-1. **Настройте секреты в GitHub репозитории**
-2. **Выполните push в main ветку** для автоматического деплоя
+1. **Configure secrets in GitHub repository**
+2. **Push to main branch** for automatic deployment
 
 ## 📖 API Documentation
 
 ### Interactive Documentation
+- **🔥 Version 2.0.0**: Major update with regional system and Cities API
 - **Swagger UI**: http://localhost:3001/api/v1/docs/swagger
 - **OpenAPI JSON**: http://localhost:3001/api/v1/docs/openapi.json
 - **OpenAPI YAML**: http://localhost:3001/api/v1/docs/openapi.yaml
@@ -59,121 +60,131 @@ bun run dev
 
 ## 📡 API Endpoints
 
-### Базовый URL: `/api/v1`
+### Base URL: `/api/v1`
 
-| Endpoint | Method | Описание |
-|----------|--------|----------|
-| `/divisions/nearby` | GET | Поиск ближайших отделений |
-| `/divisions/search` | GET | Поиск по фильтрам |
-| `/divisions/:id` | GET | Получить отделение по ID |
-| `/divisions/countries` | GET | Список всех стран |
-| `/divisions/countries/:code/cities` | GET | Города по стране |
-| `/system/health` | GET | Проверка здоровья API |
-| `/system/status` | GET | Статус системы |
-| `/system/update-status` | GET | Статус последнего обновления |
-| `/system/updates/history` | GET | История обновлений |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/divisions/nearby` | GET | Find nearby divisions |
+| `/divisions/search` | GET | Search by filters |
+| `/divisions/:id` | GET | Get division by ID |
+| `/divisions/countries` | GET | List all countries |
+| `/divisions/countries/:code/cities` | GET | Cities by country |
+| `/parent-regions` | GET | List parent regions |
+| `/parent-regions/stats` | GET | Regional statistics |
+| `/parent-regions/:id/cities` | GET | Cities in region |
+| `/cities/:id/divisions` | GET | **Divisions in city** |
+| `/system/health` | GET | API health check |
+| `/system/status` | GET | System status |
+| `/system/update-status` | GET | Last update status |
+| `/system/updates/history` | GET | Update history |
 
-### Примеры запросов
+### Example Requests
 
 ```bash
-# Найти ближайшие отделения
+# Find nearby divisions
 curl "http://localhost:3001/api/v1/divisions/nearby?lat=50.4501&lng=30.5234&radius=10"
 
-# Поиск по стране
+# Search by country
 curl "http://localhost:3001/api/v1/divisions/search?country=Ukraine&limit=10"
 
-# Проверка здоровья
+# Get city divisions by ID
+curl "http://localhost:3001/api/v1/cities/420/divisions?limit=10"
+
+# Get country regions
+curl "http://localhost:3001/api/v1/parent-regions?country=UA"
+
+# Health check
 curl "http://localhost:3001/api/v1/system/health"
 ```
 
-## 📋 Архитектура
+## 📋 Architecture
 
 ```
 src/
-├── types/          # TypeScript типы
-├── utils/          # Утилиты (database, logger)
-├── services/       # Бизнес-логика
-├── routes/         # API маршруты
-└── index.ts        # Главный файл приложения
+├── types/          # TypeScript types
+├── utils/          # Utilities (database, logger)
+├── services/       # Business logic
+├── routes/         # API routes
+└── index.ts        # Main application file
 
 docker/
-└── init.sql        # SQL инициализация БД
+└── init.sql        # Database initialization SQL
 
 docs/
-└── README.md       # Подробная документация API
+└── README.md       # Detailed API documentation
 ```
 
-## 🔧 Конфигурация
+## 🔧 Configuration
 
-### Переменные окружения
+### Environment Variables
 
-| Переменная | Описание | По умолчанию |
-|------------|----------|--------------|
-| `PORT` | Порт приложения | 3001 |
-| `DATABASE_URL` | Строка подключения к БД | - |
-| `NOVA_POST_API_URL` | URL NovaPost API | - |
-| `UPDATE_CRON` | Cron выражение для обновлений | `0 2 * * *` |
-| `LOG_LEVEL` | Уровень логирования | `info` |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Application port | 3001 |
+| `DATABASE_URL` | Database connection string | - |
+| `NOVA_POST_API_URL` | NovaPost API URL | - |
+| `UPDATE_CRON` | Cron expression for updates | `0 2 * * *` |
+| `LOG_LEVEL` | Logging level | `info` |
 
-### GitHub Secrets (для деплоя)
+### GitHub Secrets (for deployment)
 
-- `HOST` - IP/hostname сервера
-- `USERNAME` - SSH пользователь  
-- `SSH_KEY` - Приватный SSH ключ
-- `DATABASE_URL` - Строка подключения к БД
-- `APP_PORT` - Порт приложения
-- Остальные переменные окружения...
+- `HOST` - Server IP/hostname
+- `USERNAME` - SSH user  
+- `SSH_KEY` - Private SSH key
+- `DATABASE_URL` - Database connection string
+- `APP_PORT` - Application port
+- Other environment variables...
 
-## 📊 Мониторинг
+## 📊 Monitoring
 
-- **Логи**: `logs/combined.log`, `logs/error.log`
+- **Logs**: `logs/combined.log`, `logs/error.log`
 - **Health Check**: `GET /api/v1/system/health`
-- **Статус**: `GET /api/v1/system/status`
-- **История обновлений**: `GET /api/v1/system/updates/history`
+- **Status**: `GET /api/v1/system/status`
+- **Update History**: `GET /api/v1/system/updates/history`
 
-## 🔄 Автоматическое обновление
+## 🔄 Automatic Updates
 
-API автоматически проверяет обновления NovaPost базы данных каждый день в 3:00 UTC и обновляет локальную базу при появлении новой версии.
+API automatically checks for NovaPost database updates every day at 3:00 UTC and updates local database when new version appears.
 
-### 🔒 Безопасность обновлений
+### 🔒 Update Security
 
-Для безопасности **публичные endpoints обновления удалены**. Ручное управление доступно только через CLI с доступом к серверу:
+For security **public update endpoints are removed**. Manual management available only via CLI with server access:
 
 ```bash
-# Проверить статус
+# Check status
 bun run cli:status
 
-# Проверить доступные обновления  
+# Check available updates  
 bun run cli:check
 
-# Выполнить обновление
+# Perform update
 bun run cli:update
 
-# Показать историю обновлений
+# Show update history
 bun run cli:history
 ```
 
-Подробнее в [документации по безопасности](docs/SECURITY.md).
+More details in [security documentation](docs/SECURITY.md).
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-1. Fork репозитория
-2. Создайте feature branch
-3. Внесите изменения
-4. Добавьте тесты
-5. Обновите документацию
-6. Создайте Pull Request
+1. Fork the repository
+2. Create feature branch
+3. Make changes
+4. Add tests
+5. Update documentation
+6. Create Pull Request
 
-## 📄 Лицензия
+## 📄 License
 
 MIT License
 
-## 📞 Поддержка
+## 📞 Support
 
-- 📖 [Подробная документация](docs/README.md)
+- 📖 [Detailed Documentation](docs/README.md)
 - 🐛 [Issues](../../issues)
 - 💬 [Discussions](../../discussions)
 
 ---
 
-Создано с ❤️ для эффективной работы с API NovaPost 
+Created with ❤️ for efficient work with NovaPost API 

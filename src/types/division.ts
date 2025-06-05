@@ -18,7 +18,7 @@ export interface NovaPostDivision {
   settlement: {
     id: number;
     name: string;
-    region: {
+    region?: {
       id: number;
       name: string;
       parent?: {
@@ -26,6 +26,14 @@ export interface NovaPostDivision {
         name: string;
       };
     };
+  };
+  region?: {
+    id: number;
+    name: string;
+  };
+  parent?: {
+    id: number;
+    name: string;
   };
   address: string;
   displayAddress: string | null;
@@ -154,6 +162,7 @@ export interface City {
   country_code: string;
   region_name?: string;
   parent_region_name?: string;
+  parent_region_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -161,6 +170,15 @@ export interface City {
 export interface Country {
   code: string;
   name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParentRegion {
+  id: number;
+  nova_id?: number;
+  name: string;
+  country_code: string;
   created_at: string;
   updated_at: string;
 }

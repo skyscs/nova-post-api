@@ -16,7 +16,7 @@ interface DataFile {
 
 export class UpdateService {
   private divisionService: DivisionService;
-  private readonly NOVA_POST_VERSIONS_URL = 'https://api-cdn.novapost.pl/dictionary/divisions/mobile/full/en/versions.json';
+  private readonly NOVA_POST_VERSIONS_URL = process.env.NOVA_POST_API_URL || 'https://api-cdn.novapost.pl/dictionary/divisions/mobile/full/en/versions.json';
   private readonly DATA_FILE_PATH = path.join(process.cwd(), 'data', 'divisions.json');
 
   constructor() {
@@ -127,7 +127,6 @@ export class UpdateService {
       return {
         nova_id: item.id || item.division_id || item.code || String(Math.random()),
         name: item.name || item.title || item.division_name || 'Unknown',
-        country: item.country?.name || item.country || 'Unknown',
         country_code: item.country?.code || item.country_code || 'XX',
         city: item.city?.name || item.city || item.location?.city || 'Unknown',
         address: item.address || item.full_address || item.location?.address,
@@ -431,33 +430,82 @@ export class UpdateService {
     `, [division.countryCode, countryName]);
   }
 
+  private async upsertParentRegion(division: NovaPostDivision): Promise<number | null> {
+    if (!division.parent?.name) {
+      return null;
+    }
+
+    // First try to find existing parent region by nova_id
+    const existingParentRegion = await db.query(`
+      SELECT id FROM parent_regions WHERE nova_id = $1
+    `, [division.parent.id]);
+
+    if (existingParentRegion.rows.length > 0) {
+      return existingParentRegion.rows[0].id;
+    }
+
+    // If not found, insert new parent region
+    const result = await db.query(`
+      INSERT INTO parent_regions (
+        nova_id, name, country_code, updated_at
+      )
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      RETURNING id
+    `, [
+      division.parent.id,
+      division.parent.name,
+      division.countryCode
+    ]);
+
+    return result.rows[0].id;
+  }
+
   private async upsertCity(division: NovaPostDivision): Promise<number> {
-    // First try to find existing city by nova_id
+    // First upsert parent region if exists
+    const parentRegionId = await this.upsertParentRegion(division);
+
+    // Extract region information safely - FIXED: use division.region and division.parent
+    const regionName = division.region?.name || null;
+    const parentRegionName = division.parent?.name || null;
+
+    // Try to find existing city by nova_id
     const existingCity = await db.query(`
       SELECT id FROM cities WHERE nova_id = $1
     `, [division.settlement.id]);
 
     if (existingCity.rows.length > 0) {
+      // Update existing city with parent_region_id if it's null
+      await db.query(`
+        UPDATE cities SET 
+          region_name = $2,
+          parent_region_name = $3,
+          parent_region_id = COALESCE(parent_region_id, $4),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE nova_id = $1
+      `, [
+        division.settlement.id,
+        regionName,
+        parentRegionName,
+        parentRegionId
+      ]);
+      
       return existingCity.rows[0].id;
     }
-
-    // Extract region information safely
-    const regionName = division.settlement.region?.name || 'Unknown Region';
-    const parentRegionName = division.settlement.region?.parent?.name || null;
 
     // If not found, insert new city
     const result = await db.query(`
       INSERT INTO cities (
-        nova_id, name, country_code, region_name, parent_region_name, updated_at
+        nova_id, name, country_code, region_name, parent_region_name, parent_region_id, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
       RETURNING id
     `, [
       division.settlement.id,
       division.settlement.name,
       division.countryCode,
       regionName,
-      parentRegionName
+      parentRegionName,
+      parentRegionId
     ]);
 
     return result.rows[0].id;
@@ -761,6 +809,145 @@ export class UpdateService {
     } catch (error) {
       logger.error('Error getting update status:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Clear all data from database
+   */
+  async clearAllData(): Promise<void> {
+    logger.info('Starting to clear all data from database');
+    
+    // Clear data without transaction for more flexibility
+    try {
+      // Clear in correct order to respect foreign key constraints
+      await db.query('DELETE FROM divisions');
+      logger.info('Cleared divisions table');
+      
+      await db.query('DELETE FROM cities');
+      logger.info('Cleared cities table');
+      
+      await db.query('DELETE FROM parent_regions');
+      logger.info('Cleared parent_regions table');
+      
+      await db.query('DELETE FROM countries');
+      logger.info('Cleared countries table');
+      
+      // Try to clear update_history/update_logs if tables exist
+      try {
+        await db.query('DELETE FROM update_history');
+        logger.info('Cleared update_history table');
+      } catch (error) {
+        logger.warn('update_history table does not exist, skipping...');
+      }
+      
+      try {
+        await db.query('DELETE FROM update_logs');
+        logger.info('Cleared update_logs table');
+      } catch (error) {
+        logger.warn('update_logs table does not exist, skipping...');
+      }
+      
+      // Reset sequences (only for existing sequences)
+      await db.query('ALTER SEQUENCE divisions_id_seq RESTART WITH 1');
+      await db.query('ALTER SEQUENCE cities_id_seq RESTART WITH 1');
+      await db.query('ALTER SEQUENCE parent_regions_id_seq RESTART WITH 1');
+      
+      // Optional sequences that might not exist
+      try {
+        await db.query('ALTER SEQUENCE update_logs_id_seq RESTART WITH 1');
+      } catch (error) {
+        logger.warn('update_logs_id_seq sequence does not exist, skipping...');
+      }
+      
+      try {
+        await db.query('ALTER SEQUENCE schema_migrations_id_seq RESTART WITH 1');
+      } catch (error) {
+        logger.warn('schema_migrations_id_seq sequence does not exist, skipping...');
+      }
+      
+      logger.info('All data cleared successfully');
+    } catch (error) {
+      logger.error('Error clearing data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Force update: clear all data and download fresh from API
+   */
+  async forceUpdate(): Promise<{ success: boolean; message: string; stats?: any }> {
+    const startTime = new Date();
+    
+    try {
+      logger.info('Starting force update: clearing all data');
+      
+      await this.logUpdate('started', 'Force update: clearing all data and downloading fresh', 0, null, startTime);
+      
+      // Clear all existing data
+      await this.clearAllData();
+      
+      // Download and update from API
+      const result = await this.updateFromApi();
+      
+      if (result.success) {
+        await this.logUpdate('completed', `Force update completed: ${result.message}`, result.stats?.processed || 0, null, startTime);
+        return {
+          success: true,
+          message: `Force update completed: ${result.message}`,
+          stats: result.stats
+        };
+      } else {
+        await this.logUpdate('failed', result.message, 0, null, startTime);
+        return result;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await this.logUpdate('failed', `Force update failed: ${errorMessage}`, 0, error, startTime);
+      logger.error('Force update failed:', error);
+      return {
+        success: false,
+        message: `Force update failed: ${errorMessage}`
+      };
+    }
+  }
+
+  /**
+   * Force update from API with optional limit: clear all data and download fresh
+   */
+  async forceUpdateFromApi(limit?: number): Promise<{ success: boolean; message: string; stats?: any }> {
+    const startTime = new Date();
+    
+    try {
+      logger.info(`Starting force update from API${limit ? ` with limit ${limit}` : ''}`);
+      
+      await this.logUpdate('started', `Force update from API with limit: ${limit || 'unlimited'}`, 0, null, startTime);
+      
+      // Clear all existing data
+      await this.clearAllData();
+      
+      // Download and update from API with limit
+      const result = await this.updateFromApi(limit);
+      
+      if (result.success) {
+        await this.logUpdate('completed', `Force update from API completed: ${result.message}`, result.stats?.processed || 0, null, startTime);
+        return {
+          success: true,
+          message: `Force update from API completed: ${result.message}`,
+          stats: result.stats
+        };
+      } else {
+        await this.logUpdate('failed', result.message, 0, null, startTime);
+        return result;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await this.logUpdate('failed', `Force update from API failed: ${errorMessage}`, 0, error, startTime);
+      logger.error('Force update from API failed:', error);
+      return {
+        success: false,
+        message: `Force update from API failed: ${errorMessage}`
+      };
     }
   }
 } 

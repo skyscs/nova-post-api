@@ -7,6 +7,8 @@ import cron from 'node-cron';
 import divisionsRouter from './routes/divisions.js';
 import systemRouter from './routes/system.js';
 import docsRouter from './routes/docs.js';
+import parentRegionsRouter from './routes/parentRegions.js';
+import citiesRouter from './routes/cities.js';
 import { UpdateService } from './services/updateService.js';
 import { MigrationManager } from './database/migrations.js';
 import { db } from './utils/database.js';
@@ -27,6 +29,8 @@ app.use('*', logger());
 app.route('/api/v1/divisions', divisionsRouter);
 app.route('/api/v1/system', systemRouter);
 app.route('/api/v1/docs', docsRouter);
+app.route('/api/v1/parent-regions', parentRegionsRouter);
+app.route('/api/v1/cities', citiesRouter);
 
 // Root endpoint
 app.get('/', (c) => {
@@ -37,7 +41,9 @@ app.get('/', (c) => {
     endpoints: {
       divisions: '/api/v1/divisions',
       system: '/api/v1/system',
-      docs: '/api/v1/docs'
+      docs: '/api/v1/docs',
+      parent_regions: '/api/v1/parent-regions',
+      cities: '/api/v1/cities'
     },
     documentation: {
       swagger: '/api/v1/docs/swagger',

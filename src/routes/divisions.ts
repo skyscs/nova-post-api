@@ -57,7 +57,7 @@ app.get('/search', async (c) => {
       return c.json(response, 400);
     }
 
-    const divisions = await divisionService.findDivisionsByCity(cityName, { limit, offset });
+    const divisions = await divisionService.searchDivisions({ city: cityName, limit, offset });
 
     const response: ApiResponse<typeof divisions> = {
       success: true,

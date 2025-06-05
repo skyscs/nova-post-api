@@ -1,6 +1,6 @@
 {
   "name": "nova-post-api",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "API for NovaPost divisions database with geospatial search",
   "type": "module",
   "scripts": {

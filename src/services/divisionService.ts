@@ -130,18 +130,121 @@ export class DivisionService {
 
   async getCitiesByCountry(countryCode: string): Promise<City[]> {
     const query = `
-      SELECT c.id, c.nova_id, c.name, c.country_code, c.region_name, c.parent_region_name, COUNT(d.id) as divisions_count 
+      SELECT c.id, c.nova_id, c.name, c.country_code, c.region_name, c.parent_region_name, c.parent_region_id, COUNT(d.id) as divisions_count 
       FROM cities c 
       LEFT JOIN divisions d ON c.id = d.city_id 
       WHERE c.country_code = $1 
-      GROUP BY c.id, c.nova_id, c.name, c.country_code, c.region_name, c.parent_region_name 
+      GROUP BY c.id, c.nova_id, c.name, c.country_code, c.region_name, c.parent_region_name, c.parent_region_id 
       ORDER BY c.name
     `;
     const result = await db.query(query, [countryCode]);
     return result.rows;
   }
 
-  async getDivisionsByCity(cityId: number): Promise<Division[]> {
+  async getCitiesByParentRegion(parentRegionId: number, params: {
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{
+    data: City[];
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
+  }> {
+    const { limit = 50, offset = 0 } = params;
+    
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as count 
+      FROM cities 
+      WHERE parent_region_id = $1
+    `;
+    const countResult = await db.query(countQuery, [parentRegionId]);
+    const total = parseInt(countResult.rows[0].count);
+    
+    // Get data with pagination
+    const dataQuery = `
+      SELECT c.id, c.nova_id, c.name, c.country_code, c.region_name, c.parent_region_name, c.parent_region_id, COUNT(d.id) as divisions_count
+      FROM cities c
+      LEFT JOIN divisions d ON c.id = d.city_id
+      WHERE c.parent_region_id = $1
+      GROUP BY c.id, c.nova_id, c.name, c.country_code, c.region_name, c.parent_region_name, c.parent_region_id
+      ORDER BY c.name ASC
+      LIMIT $2 OFFSET $3
+    `;
+    
+    const result = await db.query(dataQuery, [parentRegionId, limit, offset]);
+    
+    return {
+      data: result.rows,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + limit < total
+      }
+    };
+  }
+
+  async getDivisionsByCity(cityId: number, params: {
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{
+    data: Division[];
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
+  }> {
+    const { limit = 50, offset = 0 } = params;
+    
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as count 
+      FROM divisions 
+      WHERE city_id = $1
+    `;
+    const countResult = await db.query(countQuery, [cityId]);
+    const total = parseInt(countResult.rows[0].count);
+    
+    // Get data with pagination  
+    const dataQuery = `
+      SELECT d.id, d.nova_id, d.name, d.short_name, d.external_id, d.source, d.country_code, d.city_id,
+             d.address, d.display_address, d.number, d.status, d.customer_service_available,
+             d.division_category, d.payment_enabled_delivery, d.payment_enabled_pickup,
+             d.responsible_person, d.latitude, d.longitude, d.location, d.long_term_location,
+             d.max_weight_place_sender, d.max_length_place_sender, d.max_width_place_sender, d.max_height_place_sender,
+             d.max_weight_place_recipient, d.max_length_place_recipient, d.max_width_place_recipient, d.max_height_place_recipient,
+             d.prohibited_sending, d.prohibited_issuance, d.max_cost_place, d.max_declared_cost_place,
+             d.work_schedule, d.full_address, d.settings, d.additional_ids, d.photos, d.attributes,
+             d.nova_created_at, d.nova_updated_at, d.nova_deleted_at, d.created_at, d.updated_at,
+             c.name as city_name
+      FROM divisions d
+      JOIN cities c ON d.city_id = c.id
+      WHERE d.city_id = $1
+      ORDER BY d.name ASC
+      LIMIT $2 OFFSET $3
+    `;
+    
+    const result = await db.query(dataQuery, [cityId, limit, offset]);
+    
+    return {
+      data: result.rows,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + limit < total
+      }
+    };
+  }
+
+  // Legacy method for backward compatibility
+  async getDivisionsByCityLegacy(cityId: number): Promise<Division[]> {
     const query = `SELECT ${this.divisionFields} FROM divisions WHERE city_id = $1 ORDER BY name`;
     const result = await db.query(query, [cityId]);
     return result.rows;

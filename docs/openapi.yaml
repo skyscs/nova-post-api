@@ -14,7 +14,7 @@ info:
     - All endpoints are read-only (GET methods only)
     - Update management available only via CLI with SSH access
     - Comprehensive operation logging
-  version: 1.1.0
+  version: 2.0.0
   contact:
     name: NovaPost API Support
     url: https://github.com/yourusername/nova-post-api
@@ -30,6 +30,10 @@ servers:
 tags:
   - name: divisions
     description: Operations with postal divisions
+  - name: parent-regions
+    description: Operations with parent regions (voivodeships, oblasts, etc.)
+  - name: cities
+    description: Operations with cities
   - name: system
     description: System information and monitoring
 
@@ -281,6 +285,186 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/City'
+
+  /parent-regions:
+    get:
+      tags:
+        - parent-regions
+      summary: List parent regions
+      description: Get list of parent regions (voivodeships, oblasts, etc.) with optional filtering
+      parameters:
+        - name: country
+          in: query
+          description: Filter by country code
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+          example: UA
+        - name: search
+          in: query
+          description: Search by region name
+          schema:
+            type: string
+          example: Kyiv
+        - name: limit
+          in: query
+          description: Number of records to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of parent regions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ParentRegion'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationV2'
+
+  /parent-regions/stats:
+    get:
+      tags:
+        - parent-regions
+      summary: Parent region statistics
+      description: Get statistics about parent regions by country
+      responses:
+        '200':
+          description: Parent region statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            country_code:
+                              type: string
+                              example: "UA"
+                            count:
+                              type: integer
+                              example: 23
+
+  /parent-regions/{id}/cities:
+    get:
+      tags:
+        - parent-regions
+      summary: Cities in parent region
+      description: Get list of cities within a specific parent region
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Parent region ID
+          schema:
+            type: integer
+          example: 1
+        - name: limit
+          in: query
+          description: Number of records to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of cities
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/City'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationV2'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /cities/{id}/divisions:
+    get:
+      tags:
+        - cities
+      summary: Divisions in city
+      description: Get list of divisions within a specific city
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: City ID
+          schema:
+            type: integer
+          example: 420
+        - name: limit
+          in: query
+          description: Number of records to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of records to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of divisions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Division'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationV2'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /system/health:
     get:
@@ -720,6 +904,57 @@ components:
           type: string
           nullable: true
           description: Error details (JSON)
+
+    ParentRegion:
+      type: object
+      description: Parent region (voivodeship, oblast, etc.)
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+          example: 1
+        nova_id:
+          type: integer
+          nullable: true
+          description: ID in NovaPost system
+          example: 100
+        name:
+          type: string
+          description: Parent region name
+          example: "Kyivska oblast"
+        country_code:
+          type: string
+          description: Country code
+          example: "UA"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation time
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update time
+
+    PaginationV2:
+      type: object
+      description: Enhanced pagination information
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+          example: 150
+        limit:
+          type: integer
+          description: Number of items per page
+          example: 50
+        offset:
+          type: integer
+          description: Number of items skipped
+          example: 0
+        hasMore:
+          type: boolean
+          description: Whether there are more items available
+          example: true
 
   responses:
     BadRequest:

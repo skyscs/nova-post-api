@@ -62,6 +62,14 @@ export class MigrationManager {
         await this.markMigrationAsRun('update_logs_structure_v2');
       }
 
+      // Add parent_regions table if missing
+      const parentRegionsMigrationRun = await this.isMigrationRun('create_parent_regions');
+      if (!parentRegionsMigrationRun) {
+        logger.info('Creating parent_regions table...');
+        await this.createParentRegionsTable();
+        await this.markMigrationAsRun('create_parent_regions');
+      }
+
       logger.info('Database migrations completed successfully');
     } catch (error) {
       logger.error('Migration failed:', error);
@@ -278,5 +286,34 @@ export class MigrationManager {
     
     const result = await db.query(query, [tableName, columnName]);
     return result.rows[0].exists;
+  }
+
+  /**
+   * Create parent_regions table
+   */
+  private async createParentRegionsTable(): Promise<void> {
+    const query = `
+      CREATE TABLE IF NOT EXISTS parent_regions (
+        id SERIAL PRIMARY KEY,
+        nova_id INTEGER UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        country_code VARCHAR(2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Add indexes for better performance
+      CREATE INDEX IF NOT EXISTS idx_parent_regions_country_code ON parent_regions(country_code);
+      CREATE INDEX IF NOT EXISTS idx_parent_regions_name ON parent_regions(name);
+      CREATE INDEX IF NOT EXISTS idx_parent_regions_nova_id ON parent_regions(nova_id);
+
+      -- Add foreign key to cities table
+      ALTER TABLE cities ADD COLUMN IF NOT EXISTS parent_region_id INTEGER;
+
+      -- Add index for the foreign key
+      CREATE INDEX IF NOT EXISTS idx_cities_parent_region_id ON cities(parent_region_id);
+    `;
+    
+    await db.query(query);
   }
 } 

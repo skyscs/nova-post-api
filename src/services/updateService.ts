@@ -16,7 +16,7 @@ interface DataFile {
 
 export class UpdateService {
   private divisionService: DivisionService;
-  private readonly NOVA_POST_VERSIONS_URL = process.env.NOVA_POST_API_URL || 'https://api-cdn.novapost.pl/dictionary/divisions/mobile/full/en/versions.json';
+  private readonly NOVA_POST_VERSIONS_URL = process.env.NOVA_POST_API_URL || 'https://api-cdn.novapost.pl/dictionary/divisions/mobile/full/uk/versions.json';
   private readonly DATA_FILE_PATH = path.join(process.cwd(), 'data', 'divisions.json');
 
   constructor() {

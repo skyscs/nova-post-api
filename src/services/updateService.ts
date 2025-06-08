@@ -23,40 +23,28 @@ export class UpdateService {
     this.divisionService = new DivisionService();
   }
 
+  /**
+   * Simple update method: ALWAYS updates from NovaPost API
+   * No complex version checking - just download fresh data and update database
+   */
   async checkForUpdates(): Promise<boolean> {
     try {
-      const response = await axios.get<NovaPostApiResponse>(
-        process.env.NOVA_POST_API_URL!,
-        { timeout: 30000 }
-      );
-
-      const apiData = response.data;
+      logger.info('Starting daily database update from NovaPost API');
       
-      if (!apiData.base_version) {
-        throw new Error('No base version available');
+      const result = await this.updateFromApi();
+      
+      if (result.success) {
+        logger.info('Daily update completed successfully');
+        return true;
+      } else {
+        logger.error('Daily update failed:', result.message);
+        await this.logUpdate('failed', result.message, 0);
+        return false;
       }
-
-      // Use the latest delta or base version
-      const latestVersion = apiData.deltas.length > 0 
-        ? apiData.deltas[apiData.deltas.length - 1]
-        : apiData.base_version;
-
-      const lastUpdate = await this.getLastSuccessfulUpdate();
-
-      // Check if we have a newer version
-      const latestTimestamp = 'unix_time_till' in latestVersion 
-        ? latestVersion.unix_time_till 
-        : latestVersion.unix_time;
-
-      if (!lastUpdate || latestTimestamp > (lastUpdate.completed_at?.getTime() || 0) / 1000) {
-        // Use the safer updateFromApi method instead of the old updateDatabase
-        const result = await this.updateFromApi();
-        return result.success;
-      }
-
-      return false;
     } catch (error) {
-      await this.logUpdate('failed', 'Failed to check for updates', 0, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Daily update error:', error);
+      await this.logUpdate('failed', `Daily update failed: ${errorMessage}`, 0, error);
       throw error;
     }
   }

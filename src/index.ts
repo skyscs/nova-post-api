@@ -67,16 +67,16 @@ app.onError((err, c) => {
 // Initialize services
 const updateService = new UpdateService();
 
-// Setup cron job for daily updates
+// Setup cron job for daily updates from NovaPost API
 const cronExpression = process.env.UPDATE_CRON || '0 2 * * *'; // Daily at 2 AM
 cron.schedule(cronExpression, async () => {
-  appLogger.info('Starting scheduled database update');
+  appLogger.info('Starting scheduled database update from NovaPost API');
   try {
     const updated = await updateService.checkForUpdates();
     if (updated) {
-      appLogger.info('Database updated successfully via cron job');
+      appLogger.info('Database updated successfully from NovaPost API');
     } else {
-      appLogger.info('No updates available via cron job');
+      appLogger.error('Database update from NovaPost API failed - check logs');
     }
   } catch (error) {
     appLogger.error('Cron job failed:', error);

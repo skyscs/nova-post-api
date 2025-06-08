@@ -17,10 +17,17 @@ export class DivisionService {
 
   async bulkCreateDivisions(divisions: any[]): Promise<void> {
     await db.transaction(async (client: PoolClient) => {
-      // Clear existing data
-      await client.query('TRUNCATE TABLE divisions CASCADE');
-      
-      // Batch insert divisions
+      // First, validate that we have data to insert
+      if (!divisions || divisions.length === 0) {
+        throw new Error('No divisions data provided for bulk insert');
+      }
+
+      // Create a temporary table to store new data
+      await client.query(`
+        CREATE TEMP TABLE temp_divisions (LIKE divisions INCLUDING ALL)
+      `);
+
+      // Insert data into temp table first
       const batchSize = 1000;
       for (let i = 0; i < divisions.length; i += batchSize) {
         const batch = divisions.slice(i, i + batchSize);
@@ -47,7 +54,7 @@ export class DivisionService {
         });
 
         const query = `
-          INSERT INTO divisions (
+          INSERT INTO temp_divisions (
             nova_id, name, country_code, city_id, address, latitude, longitude,
             work_schedule, full_address, settings, additional_ids, photos
           ) VALUES ${placeholders.join(', ')}
@@ -55,6 +62,21 @@ export class DivisionService {
         
         await client.query(query, values);
       }
+
+      // Verify data was inserted successfully
+      const tempCount = await client.query('SELECT COUNT(*) FROM temp_divisions');
+      if (parseInt(tempCount.rows[0].count) !== divisions.length) {
+        throw new Error(`Data verification failed: expected ${divisions.length} divisions, got ${tempCount.rows[0].count}`);
+      }
+
+      // Only now clear the main table and replace with new data
+      await client.query('TRUNCATE TABLE divisions CASCADE');
+      await client.query(`
+        INSERT INTO divisions SELECT * FROM temp_divisions
+      `);
+
+      // Drop temp table (will be cleaned up automatically, but explicit is better)
+      await client.query('DROP TABLE temp_divisions');
     });
   }
 

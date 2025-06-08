@@ -49,8 +49,9 @@ export class UpdateService {
         : latestVersion.unix_time;
 
       if (!lastUpdate || latestTimestamp > (lastUpdate.completed_at?.getTime() || 0) / 1000) {
-        await this.updateDatabase(latestVersion.url);
-        return true;
+        // Use the safer updateFromApi method instead of the old updateDatabase
+        const result = await this.updateFromApi();
+        return result.success;
       }
 
       return false;
@@ -60,101 +61,7 @@ export class UpdateService {
     }
   }
 
-  private async updateDatabase(dataUrl: string): Promise<void> {
-    const startTime = new Date();
-    
-    try {
-      await this.logUpdate('started', 'Starting database update', 0);
-
-      // Download the data
-      const response = await axios.get(dataUrl, { 
-        timeout: 300000, // 5 minutes timeout for large file
-        maxContentLength: 1024 * 1024 * 1024 // 1GB max size
-      });
-
-      const divisions = this.parseDivisionData(response.data);
-      
-      // Bulk insert divisions
-      await this.divisionService.bulkCreateDivisions(divisions);
-      
-      await this.logUpdate('completed', 'Database update completed successfully', divisions.length, null, startTime);
-    } catch (error) {
-      await this.logUpdate('failed', 'Database update failed', 0, error, startTime);
-      throw error;
-    }
-  }
-
-  private parseDivisionData(data: any): Omit<Division, 'id'>[] {
-    const divisions: Omit<Division, 'id'>[] = [];
-    
-    // The structure might vary, this is a generic parser
-    // You may need to adjust this based on the actual API response structure
-    if (Array.isArray(data)) {
-      data.forEach((item: any) => {
-        const division = this.mapApiDataToDivision(item);
-        if (division) {
-          divisions.push(division);
-        }
-      });
-    } else if (data.data && Array.isArray(data.data)) {
-      data.data.forEach((item: any) => {
-        const division = this.mapApiDataToDivision(item);
-        if (division) {
-          divisions.push(division);
-        }
-      });
-    } else if (typeof data === 'object') {
-      // Handle nested structure
-      Object.values(data).forEach((value: any) => {
-        if (Array.isArray(value)) {
-          value.forEach((item: any) => {
-            const division = this.mapApiDataToDivision(item);
-            if (division) {
-              divisions.push(division);
-            }
-          });
-        }
-      });
-    }
-
-    return divisions;
-  }
-
-  private mapApiDataToDivision(item: any): Omit<Division, 'id'> | null {
-    try {
-      // Map API fields to our division structure
-      // Adjust field mapping based on actual API response
-      return {
-        nova_id: item.id || item.division_id || item.code || String(Math.random()),
-        name: item.name || item.title || item.division_name || 'Unknown',
-        country_code: item.country?.code || item.country_code || 'XX',
-        city: item.city?.name || item.city || item.location?.city || 'Unknown',
-        address: item.address || item.full_address || item.location?.address,
-        phone: item.phone || item.contact?.phone,
-        email: item.email || item.contact?.email,
-        working_hours: item.working_hours || item.schedule,
-        latitude: this.parseCoordinate(item.latitude || item.lat || item.location?.latitude),
-        longitude: this.parseCoordinate(item.longitude || item.lng || item.location?.longitude),
-        metadata: {
-          original_data: item,
-          services: item.services || [],
-          additional_info: item.additional_info || {}
-        }
-      };
-    } catch (error) {
-      console.warn('Failed to parse division data:', error, item);
-      return null;
-    }
-  }
-
-  private parseCoordinate(value: any): number | undefined {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const parsed = parseFloat(value);
-      return isNaN(parsed) ? undefined : parsed;
-    }
-    return undefined;
-  }
+  // Removed unsafe updateDatabase and parseDivisionData methods - now using updateFromApi instead
 
   private async logUpdate(
     status: 'started' | 'completed' | 'failed',

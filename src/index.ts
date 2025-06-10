@@ -18,7 +18,7 @@ const app = new Hono();
 
 // Middleware
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'https://ukrpop.com'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'https://ukrpop.com', 'https://dev-tkt-client.vercel.app'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
